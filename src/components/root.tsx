@@ -1,12 +1,7 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import React from "react";
 
-import SegmentedControlContext, {
-    type Mode,
-    type PressState,
-    type SegmentedControlContextValue,
-} from "../context/root-context";
-import { useComposedRefs } from "../hooks/use-composed-refs";
+import SegmentedControlContext, { type Mode, type PressState } from "../context/root-context";
 import { useControllableState } from "../hooks/use-controllable-state";
 
 type SegmentedControlRootProps = Tabs.TabsProps & {
@@ -37,7 +32,7 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
             style,
             ...rest
         },
-        forwardedRef,
+        ref,
     ) => {
         const [value = "", setValue] = useControllableState<string>({
             prop: valueProp,
@@ -57,11 +52,16 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
 
         // Press/drag state
         const [pressState, setPressState] = React.useState<PressState>({
-            pressedValue: null,
+            pressedValue: undefined,
             isLongPressed: false,
-            isDragging: false,
-            activeDragValue: null,
+            dragValue: undefined,
         });
+
+        React.useEffect(() => {
+            // console.log("Root > pressState", pressState);
+            setDrag(pressState.dragValue);
+            setPressed(pressState.pressedValue);
+        }, [pressState, setDrag, setPressed]);
 
         // Registry of triggers
         const triggerRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
@@ -78,88 +78,41 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
             return triggerRefs.current[val] || null;
         }, []);
 
-        // Root ref to capture pointer events
-        const rootRef = React.useRef<HTMLDivElement | null>(null);
-        const composedRef = useComposedRefs(rootRef, forwardedRef);
-
-        // Finds the nearest trigger to a pointer X (for snapping during drag)
-        const findNearestValue = React.useCallback((clientX: number): string | null => {
-            const entries = Object.entries(triggerRefs.current);
-            if (!entries.length) return null;
-
-            const distances = entries.map(([val, btn]) => {
-                if (!btn) return { val, dist: Infinity };
-                const rect = btn.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                return { val, dist: Math.abs(centerX - clientX) };
-            });
-            distances.sort((a, b) => a.dist - b.dist);
-            return distances[0]?.val ?? null;
-        }, []);
-
-        const handlePointerMove = React.useCallback(
-            (evt: React.PointerEvent<HTMLDivElement>) => {
-                if (!pressState.isDragging) return;
-                const nearestVal = findNearestValue(evt.clientX);
-                setDrag(nearestVal ?? undefined);
-                if (nearestVal === value) setPressed(nearestVal);
-                setPressState((prev) => ({ ...prev, activeDragValue: nearestVal }));
-            },
-            [pressState.isDragging, findNearestValue, value, setPressed, setPressState, setDrag],
-        );
-
-        const handlePointerUp = React.useCallback(
-            (evt: React.PointerEvent<HTMLDivElement>) => {
-                if (!pressState.activeDragValue) return;
-                setValue(pressState.activeDragValue);
-                setDrag(undefined);
-                setPressed(undefined);
-                setPressState({
-                    pressedValue: null,
-                    isLongPressed: false,
-                    isDragging: false,
-                    activeDragValue: null,
-                });
-            },
-            [
-                pressState.isDragging,
-                pressState.activeDragValue,
-                findNearestValue,
+        const contextValue = React.useMemo(
+            () => ({
                 value,
-                setPressed,
+                setValue: setValue as React.Dispatch<React.SetStateAction<string>>,
+                mode,
+                longPressThreshold,
+                pressState,
                 setPressState,
-                setDrag,
+                registerTrigger,
+                unregisterTrigger,
+                getTriggerRef,
+                triggerRefs,
+            }),
+            [
+                value,
+                setValue,
+                mode,
+                longPressThreshold,
+                pressState,
+                setPressState,
+                registerTrigger,
+                unregisterTrigger,
+                getTriggerRef,
+                triggerRefs,
             ],
         );
 
-        const contextValue: SegmentedControlContextValue = {
-            value,
-            setValue: setValue as React.Dispatch<React.SetStateAction<string>>,
-            pressed,
-            setPressed,
-            drag,
-            setDrag,
-            mode,
-            longPressThreshold,
-            pressState,
-            setPressState,
-            registerTrigger,
-            unregisterTrigger,
-            getTriggerRef,
-        };
+        // console.log("Root > pressedState", { pressState, pressed, drag });
 
         return (
             <SegmentedControlContext.Provider value={contextValue}>
                 <Tabs.Root
-                    {...rest}
-                    ref={composedRef}
+                    ref={ref}
                     value={value}
                     onValueChange={setValue}
-                    // onPointerDown={(e) =>}
-                    onPointerMove={handlePointerMove}
-                    onPointerUp={handlePointerUp}
-                    // onPointerLeave={handlePointerUp}
-                    // onPointerLeave={handlePointerUp}
                     style={{
                         display: "inline-flex",
                         flexDirection: "column",
@@ -168,6 +121,7 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
                         touchAction: "none",
                         ...style,
                     }}
+                    {...rest}
                 >
                     {children}
                 </Tabs.Root>

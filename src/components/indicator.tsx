@@ -1,7 +1,7 @@
 import React from "react";
 import { useComposedRefs } from "../hooks/use-composed-refs";
 import { useSegmentedControlContext } from "../context/root-context";
-import { getIndicatorState } from "../util/helpers";
+import { usePrevious } from "../hooks/use-previous";
 
 type SegmentedControlIndicatorProps = React.HTMLAttributes<HTMLSpanElement> & {
     indicatorColor?: string;
@@ -18,7 +18,9 @@ const getStyles = ({
     indicatorColor: string;
     coords: {
         x: number;
+        y: number;
         width: number;
+        height: number;
     };
 }): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
@@ -37,7 +39,15 @@ const getStyles = ({
         };
     }
     if (placement === "inset") {
-        return {};
+        return {
+            position: "absolute",
+            zIndex: 1,
+            ...baseStyles,
+            top: "4px",
+            bottom: "4px",
+            borderRadius: "5px",
+            backgroundColor: indicatorColor,
+        };
     }
     return baseStyles;
 };
@@ -56,35 +66,50 @@ const Indicator = React.forwardRef<HTMLSpanElement, SegmentedControlIndicatorPro
         const indicatorRef = React.useRef<HTMLSpanElement | null>(null);
         const composedRef = useComposedRefs(indicatorRef, forwardedRef);
 
-        // Track the "highlight" item -> either the user is dragging from the selected item,
-        // or it's just the actual selected item
-        // const highlightValue =
-        //     pressState.isDragging && pressState.activeDragValue ? pressState.activeDragValue : selectedValue;
-        const highlightValue = getIndicatorState({ pressState, selectedValue });
-        // const highlightValue = selectedValue;
+        const getActiveValue = () => {
+            if (pressState.dragValue === undefined || pressState.pressedValue === undefined) {
+                return selectedValue;
+            }
+            if (pressState.pressedValue === selectedValue && pressState.dragValue === selectedValue) {
+                return selectedValue;
+            }
+            return pressState.dragValue;
+        };
+
+        const highlightValue = getActiveValue();
 
         // Keep a ref to the *previous* highlight so we can animate from old => new
         const prevHighlightRef = React.useRef<string | null>(null);
+        // const prevHighlightRef = usePrevious(highlightValue);
 
         // For final layout
-        const [coords, setCoords] = React.useState({ x: 0, width: 0 });
+        const [coords, setCoords] = React.useState({
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        });
 
-        // Helper: measure bounding box for a trigger
-        const measureBox = React.useCallback(
-            (val: string) => {
-                const btn = getTriggerRef(val);
-                if (!btn) return null;
-                const rect = btn.getBoundingClientRect();
-                const parentRect = btn.offsetParent?.getBoundingClientRect();
-                if (!parentRect) return null;
-                return {
-                    x: rect.left - parentRect.left,
-                    width: rect.width,
-                };
-            },
-            [getTriggerRef],
-        );
+        function measureBox(val: string) {
+            const btn = getTriggerRef(val);
+            if (!btn) return null;
 
+            const rect = btn.getBoundingClientRect();
+            // Always measure against the indicator’s own offsetParent to share the same frame of reference.
+            const parent = indicatorRef.current?.offsetParent as HTMLElement | null;
+            if (!parent) return null;
+
+            const parentRect = parent.getBoundingClientRect();
+
+            return {
+                x: rect.left - parentRect.left + 4,
+                y: rect.top - parentRect.top,
+                width: rect.width - 8,
+                height: rect.height,
+            };
+        }
+
+        // TODO - fix bug where long press + moving quick between two items jumps back to first item
         React.useEffect(() => {
             if (!highlightValue) return;
 
@@ -97,7 +122,7 @@ const Indicator = React.forwardRef<HTMLSpanElement, SegmentedControlIndicatorPro
 
             // If we have no old highlight, just place ourselves (no animation).
             if (!prevHighlightRef.current) {
-                setCoords({ x: newBox.x, width: newBox.width });
+                setCoords({ ...newBox });
                 prevHighlightRef.current = highlightValue;
                 return;
             }
@@ -109,23 +134,23 @@ const Indicator = React.forwardRef<HTMLSpanElement, SegmentedControlIndicatorPro
             const oldBox = measureBox(prevHighlightRef.current);
             if (!oldBox) {
                 // If old box can't be measured, fallback to immediate
-                setCoords({ x: newBox.x, width: newBox.width });
+                setCoords({ ...newBox });
                 prevHighlightRef.current = highlightValue;
                 return;
             }
 
             // Step 1: Immediately set final coords
-            setCoords({ x: newBox.x, width: newBox.width });
+            setCoords({ ...newBox });
             el.getBoundingClientRect(); // force reflow
 
-            // Step 2: Invert transform from old to new
-            const dx = oldBox.x - newBox.x;
-            const scaleX = oldBox.width / newBox.width;
+            // // Step 2: Invert transform from old to new
+            // const dx = oldBox.x - newBox.x;
+            // const scaleX = oldBox.width / newBox.width;
 
-            // Temporarily disable transitions, jump to old bounding box
-            el.style.transition = "none";
-            el.style.transform = `translate3d(${dx}px, 0, 0) scaleX(${scaleX})`;
-            el.getBoundingClientRect(); // force reflow
+            // // // Temporarily disable transitions, jump to old bounding box
+            // // el.style.transition = "none";
+            // // el.style.transform = `translate3d(${dx}px, 0, 0) scaleX(${scaleX})`;
+            // // el.getBoundingClientRect(); // force reflow
 
             // Step 3: Animate to transform: none
             requestAnimationFrame(() => {

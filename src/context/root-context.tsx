@@ -4,22 +4,16 @@ type Mode = "tabs" | "toggle-group";
 
 type PressState = {
     /* Which item was pointer-down on */
-    pressedValue: string | null;
+    pressedValue?: string;
     /* Did we surpass long-press threshold? */
     isLongPressed: boolean;
-    /* Are we currently dragging? */
-    isDragging: boolean;
     /* Which item is the indicator "snapped" to during drag */
-    activeDragValue: string | null;
+    dragValue?: string;
 };
 
 type SegmentedControlContextValue = {
     value: string; // current selected value
     setValue: React.Dispatch<React.SetStateAction<string>>;
-    pressed?: string; // currently pressed value
-    setPressed: React.Dispatch<React.SetStateAction<string | undefined>>;
-    drag?: string; // currently dragged value
-    setDrag: React.Dispatch<React.SetStateAction<string | undefined>>;
     mode: Mode;
     longPressThreshold: number;
 
@@ -31,6 +25,7 @@ type SegmentedControlContextValue = {
     registerTrigger: (val: string, ref: HTMLButtonElement | null) => void;
     unregisterTrigger: (val: string) => void;
     getTriggerRef: (val: string) => HTMLButtonElement | null;
+    triggerRefs: React.MutableRefObject<Record<string, HTMLButtonElement | null>>;
 };
 
 const SegmentedControlContext = React.createContext<SegmentedControlContextValue | null>(null);

@@ -1,9 +1,8 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import React from "react";
 
-import { PressState, useSegmentedControlContext } from "../context/root-context";
+import { useSegmentedControlContext } from "../context/root-context";
 import { useComposedRefs } from "../hooks/use-composed-refs";
-import { getDragState } from "../util/helpers";
 
 type SegmentedControlTriggerProps = Tabs.TabsTriggerProps;
 
@@ -11,16 +10,16 @@ type SegmentedControlTriggerProps = Tabs.TabsTriggerProps;
  * The interactive button that changes the selected item
  */
 const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, SegmentedControlTriggerProps>(
-    ({ value, onPointerDown, onClick, style, children, ...rest }, forwardedRef) => {
+    (
+        { value, onPointerDown: onPointerDownProp, onPointerUp: onPointerUpProp, style, children, ...rest },
+        forwardedRef,
+    ) => {
         const {
             value: selectedValue,
-            setDrag,
-            setPressed,
             pressState,
             setPressState,
             registerTrigger,
             unregisterTrigger,
-            longPressThreshold,
             setValue,
         } = useSegmentedControlContext();
 
@@ -34,55 +33,84 @@ const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, Segmente
 
         const selected = value === selectedValue;
 
-        const handlePointerDown = React.useCallback(
+        const onPointerDown = React.useCallback(
             (e: React.PointerEvent<HTMLButtonElement>) => {
                 e.preventDefault(); /* tab changes are handles internally */
+                e.currentTarget.setPointerCapture(e.pointerId);
 
-                /* reset */
-                setDrag(value);
-                setPressed(value);
-                setPressState({
+                setPressState(() => ({
                     pressedValue: value,
                     isLongPressed: true,
-                    isDragging: true,
-                    activeDragValue: value,
-                });
+                    dragValue: value,
+                }));
 
-                onPointerDown?.(e);
+                onPointerDownProp?.(e);
             },
-            [onPointerDown, setPressState, value, longPressThreshold, selectedValue, setPressed, setDrag],
+            [onPointerDownProp, setPressState, value],
         );
 
-        // Basic styling, focusing on performance (transform usage)
-        const baseStyle: React.CSSProperties = {
-            flex: 1,
-            cursor: "pointer",
-            height: "100%",
-            transition: "transform 0.2s ease, opacity 0.2s ease",
-            willChange: "transform, opacity",
+        const onPointerUp = React.useCallback(
+            (e: React.PointerEvent<HTMLButtonElement>) => {
+                console.log("Trigger > onPointerUp", { value, pressState });
+                if (buttonRef.current) {
+                    const rect = buttonRef.current.getBoundingClientRect();
+                    const withinBounds =
+                        e.clientX >= rect.left &&
+                        e.clientX <= rect.right &&
+                        e.clientY >= rect.top &&
+                        e.clientY <= rect.bottom;
+
+                    if (withinBounds) {
+                        e.stopPropagation();
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                        setValue(value);
+                        setPressState({
+                            pressedValue: undefined,
+                            isLongPressed: false,
+                            dragValue: undefined,
+                        });
+                    }
+                }
+
+                onPointerUpProp?.(e);
+            },
+            [onPointerUpProp, setValue, setPressState, value],
+        );
+
+        const getDataDragAttribute = () => {
+            const pressed = pressState.pressedValue === value;
+            const dragging = pressState.dragValue === value;
+
+            if (selected) {
+                if (pressState.dragValue === undefined) return "active";
+                if (pressState.pressedValue !== value) return "active";
+                if (!dragging) return "inactive";
+                return pressed ? "active-pressed" : "inactive";
+            }
+
+            if (dragging && !pressed && pressState.pressedValue === selectedValue) return "active-pressed";
+            if (dragging) return "inactive-pressed";
+            return "inactive";
         };
 
         return (
             <Tabs.Trigger
-                {...rest}
                 ref={composedRef}
                 value={value}
                 type="button"
-                data-value={value}
-                data-pressed={pressState.pressedValue === value}
-                data-selected={selected}
-                data-drag={
-                    selected && pressState.activeDragValue === value
-                        ? "active"
-                        : selected && !!pressState.activeDragValue
-                        ? "other"
-                        : "none"
-                }
-                onPointerDown={handlePointerDown}
+                data-drag={getDataDragAttribute()}
+                onPointerDown={onPointerDown}
+                onPointerUp={onPointerUp}
                 style={{
-                    ...baseStyle,
+                    flex: 1,
+                    cursor: "pointer",
+                    height: "100%",
+                    transition: "transform 0.2s ease, opacity 0.2s ease",
+                    willChange: "transform, opacity",
+                    zIndex: 2,
                     ...style,
                 }}
+                {...rest}
             >
                 {children}
             </Tabs.Trigger>

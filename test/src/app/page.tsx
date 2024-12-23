@@ -24,7 +24,7 @@ export default function Page() {
                     style={{ border: "1px solid #ccc", borderRadius: 8, overflow: "hidden" }}
                     className="w-[300px] h-[42px]"
                 >
-                    <SegmentedControl.ControlGroup style={{ backgroundColor: "#333" }}>
+                    <SegmentedControl.ControlGroup className="relative bg-[#333]">
                         <SegmentedControl.Trigger value="alpha" className={triggerStyles()}>
                             Alpha
                         </SegmentedControl.Trigger>
@@ -37,7 +37,7 @@ export default function Page() {
                         <SegmentedControl.Indicator
                             // indicatorColor="#007AFF"
                             // transitionDuration={200}
-                            placement="bottom"
+                            placement="inset"
                             // style={{
                             //     in
                             // }}
