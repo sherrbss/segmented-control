@@ -9,57 +9,104 @@ type SegmentedControlIndicatorProps = React.HTMLAttributes<HTMLSpanElement> & {
     layoutId?: string;
 };
 
+const alignmentMap = {
+    left: -1,
+    center: 0,
+    right: 1,
+} as const;
+
+const getStyles = ({
+    element,
+    containerElement,
+    parentElement,
+    alignment,
+    pressed,
+    orientation,
+}: {
+    element: HTMLElement | null;
+    containerElement: HTMLElement | null;
+    parentElement: HTMLElement | null;
+    alignment: "left" | "center" | "right";
+    pressed: boolean;
+    orientation: "horizontal" | "vertical";
+}) => {
+    if (!element || !parentElement || !containerElement) return;
+    const rect = element.getBoundingClientRect();
+    const parentRect = parentElement.getBoundingClientRect();
+
+    const alignmentFactor = orientation === "vertical" ? 1 : alignmentMap[pressed ? alignment : "center"];
+    const offset = pressed ? Math.min(rect.width * 0.05, rect.height * 0.125, 4) : 0;
+    const halfOffset = offset / 2;
+
+    const width = rect.width - offset;
+    const height = rect.height - offset;
+
+    const xOffset = orientation === "vertical" ? 0 : halfOffset * alignmentFactor;
+    const leftOffset = rect.width - width + xOffset;
+
+    if (orientation === "vertical") {
+        return {
+            width: `${width - offset}px`,
+            height: `${height}px`,
+            top: `${rect.top - parentRect.top + (pressed ? halfOffset : 0)}px`,
+            transform: `translate3d(${rect.left - parentRect.left + leftOffset}px, 0, 0)`,
+        };
+    }
+
+    return {
+        width: `${width - offset}px`,
+        height: `${height}px`,
+        top: "50%",
+        transform: `translate3d(${rect.left - parentRect.left + leftOffset}px, -50%, 0)`,
+    };
+};
+
 const Indicator = React.forwardRef<HTMLSpanElement, SegmentedControlIndicatorProps>(
     ({ transitionDuration = 400, layoutId, ...rest }, ref) => {
         const containerRef = React.useRef<HTMLSpanElement | null>(null);
+        const hasRenderedRef = React.useRef(false);
 
-        const { getTriggerRef, orientation, contentOrientation, mode } = useSegmentedControlContext();
+        const { getTriggerRef, getAlignment, orientation, contentOrientation, mode } = useSegmentedControlContext();
         const { value, pressed } = useIndicatorState();
 
         React.useEffect(() => {
-            const getStyles = (val: string) => {
-                const btn = getTriggerRef(val);
-                if (!btn) return null;
-
-                const rect = btn.getBoundingClientRect();
-                const parent = containerRef.current?.offsetParent as HTMLElement | null;
-                if (!parent) return null;
-
-                const parentRect = parent.getBoundingClientRect();
-
-                return {
-                    width: `${rect.width}px`,
-                    height: `${rect.height}px`,
-                    top: `${rect.top - parentRect.top}px`,
-                    transform: `translate3d(${rect.left - parentRect.left}px, 0, 0) scale(${pressed ? 0.9 : 1})`,
-                };
-            };
-
-            if (!value) return;
-
-            const el = containerRef.current;
-            if (!el) return;
-
-            el.getBoundingClientRect();
-
-            const style = getStyles(value);
-            if (!style) return;
+            const container = containerRef.current;
+            if (!container) return;
 
             window.requestAnimationFrame(() => {
+                const style = getStyles({
+                    element: getTriggerRef(value),
+                    containerElement: container,
+                    parentElement: container.offsetParent as HTMLElement | null,
+                    alignment: getAlignment(value),
+                    pressed,
+                    orientation,
+                });
+
+                if (!style) return;
+
+                if (hasRenderedRef.current) {
+                    container.style.transitionDuration = `${transitionDuration}ms`;
+                } else {
+                    hasRenderedRef.current = true;
+                    container.style.transitionDuration = "0ms";
+                }
+
                 setStyle({
-                    element: el,
+                    element: container,
                     style,
                 });
-                el.getBoundingClientRect();
+
+                container.getBoundingClientRect();
             });
-        }, [transitionDuration, value, pressed, orientation, contentOrientation, mode]);
+        }, [transitionDuration, value, pressed, orientation, contentOrientation, mode, orientation]);
 
         return (
             <span
                 ref={containerRef}
                 data-segmented-control-indicator=""
                 style={{
-                    willChange: "transform, width",
+                    willChange: "transform, width, height",
                     position: "absolute",
                 }}
             >

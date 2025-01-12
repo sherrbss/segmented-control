@@ -1,43 +1,42 @@
 import * as React from "react";
+import { PressState } from "../types";
 
 type Mode = "tabs" | "toggle-group";
 
-type PressState = {
-    /* Which item was pointer-down on */
-    pressedValue?: string;
-    /* Did we surpass long-press threshold? */
-    isLongPressed: boolean;
-    /* Which item is the indicator "snapped" to during drag */
-    dragValue?: string;
-};
-
-type SegmentedControlContextValue = {
-    value: string; // current selected value
+type SegmentedControlContextValue<T extends Mode = "toggle-group"> = {
+    mode: T;
+    value: string;
     setValue: React.Dispatch<React.SetStateAction<string>>;
-    mode: Mode;
     longPressThreshold: number;
     orientation: "horizontal" | "vertical";
     contentOrientation: "horizontal" | "vertical";
-
-    // Press/drag logic
     pressState: PressState;
     setPressState: React.Dispatch<React.SetStateAction<PressState>>;
-
-    // Register triggers for measurement & snapping
-    registerTrigger: (val: string, ref: HTMLElement | null) => void;
+    alignmentOffset: number;
+    registerTrigger: (
+        val: string,
+        ref: HTMLElement | null,
+    ) => {
+        index: number;
+        length: number;
+        alignment: "center" | "left" | "right";
+    };
     unregisterTrigger: (val: string) => void;
     getTriggerRef: (val: string) => HTMLElement | null;
+    getAlignment: (val: string) => "center" | "left" | "right";
+    alignmentRefs: React.MutableRefObject<Record<string, "left" | "center" | "right">>;
     triggerRefs: React.MutableRefObject<Record<string, HTMLElement | null>>;
 };
 
-const SegmentedControlContext = React.createContext<SegmentedControlContextValue | null>(null);
+const SegmentedControlContext = React.createContext<SegmentedControlContextValue<Mode> | null>(null);
 
-function useSegmentedControlContext() {
+function useSegmentedControlContext<M extends Mode>() {
     const ctx = React.useContext(SegmentedControlContext);
     if (!ctx) {
-        throw new Error("useSegmentedControlContext must be used within SegmentedControlContext.");
+        throw new Error("Must be used inside SegmentedControl Root");
     }
-    return ctx;
+    // We lie a bit to TS, telling it the context is our generic M
+    return ctx as SegmentedControlContextValue<M>;
 }
 
 export default SegmentedControlContext;

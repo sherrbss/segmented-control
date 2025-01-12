@@ -1,9 +1,10 @@
 [data-segmented-control] {
-    --sc-timing-function: cubic-bezier(0.4, 0, 0.1, 1);
-    --sc-duration: 400ms;
+    --sc-timing-function: cubic-bezier(0.45, 0, 0.125, 1);
+    --sc-duration: 350ms;
+    --sc-trigger-duration: 300ms;
 
-    /* display: flex; */
-    /* flex-direction: column; */
+    display: flex;
+    flex-direction: column;
     position: relative;
     user-select: none;
     -webkit-user-select: none;
@@ -44,7 +45,7 @@
 }
 
 [data-segmented-control-trigger] {
-    transition: all var(--sc-duration) var(--sc-timing-function);
+    transition: all var(--sc-trigger-duration) var(--sc-timing-function);
     cursor: pointer;
     will-change: transform, opacity;
     z-index: 2;

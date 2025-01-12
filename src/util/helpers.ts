@@ -73,3 +73,23 @@ export const findNearestValue = ({
     distances.sort((a, b) => a.dist - b.dist);
     return distances[0]?.val ?? undefined;
 };
+
+/**
+ * Get the alignment of a trigger by its index.
+ */
+export const getAlignmentByIndex = ({
+    index,
+    length,
+}: {
+    index: number;
+    length: number;
+}): "left" | "center" | "right" => {
+    if (length % 2 === 0) {
+        if (index < length / 2) return "left";
+        else return "right";
+    }
+    const middle = Math.floor(length / 2);
+    if (index < middle) return "left";
+    else if (index === middle) return "center";
+    else return "right";
+};

@@ -1,5 +1,6 @@
 import React from "react";
-import { PressState, useSegmentedControlContext } from "../context/context";
+import { useSegmentedControlContext } from "../context/context";
+import { PressState } from "../types";
 
 const getValue = ({ selectedValue, pressState }: { selectedValue: string; pressState: PressState }) => {
     if (
