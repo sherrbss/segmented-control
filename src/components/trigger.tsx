@@ -1,8 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import React from "react";
 
-import { useSegmentedControlContext } from "../context/root-context";
+import { useSegmentedControlContext } from "../context/context";
 import { useComposedRefs } from "../hooks/use-composed-refs";
+import { isWithinBounds } from "../util/helpers";
 
 type SegmentedControlTriggerProps = Tabs.TabsTriggerProps;
 
@@ -10,10 +11,7 @@ type SegmentedControlTriggerProps = Tabs.TabsTriggerProps;
  * The interactive button that changes the selected item
  */
 const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, SegmentedControlTriggerProps>(
-    (
-        { value, onPointerDown: onPointerDownProp, onPointerUp: onPointerUpProp, style, children, ...rest },
-        forwardedRef,
-    ) => {
+    ({ value, onPointerDown: onPointerDownProp, onPointerUp: onPointerUpProp, children, ...rest }, ref) => {
         const {
             value: selectedValue,
             pressState,
@@ -23,11 +21,10 @@ const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, Segmente
             setValue,
         } = useSegmentedControlContext();
 
-        const buttonRef = React.useRef<HTMLButtonElement | null>(null);
-        const composedRef = useComposedRefs(buttonRef, forwardedRef);
+        const containerRef = React.useRef<HTMLDivElement | null>(null);
 
         React.useEffect(() => {
-            registerTrigger(value, buttonRef.current);
+            registerTrigger(value, containerRef.current);
             return () => unregisterTrigger(value);
         }, [value, registerTrigger, unregisterTrigger]);
 
@@ -35,7 +32,8 @@ const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, Segmente
 
         const onPointerDown = React.useCallback(
             (e: React.PointerEvent<HTMLButtonElement>) => {
-                e.preventDefault(); /* tab changes are handles internally */
+                /* prevent pointer event from propagating to other elements */
+                e.preventDefault();
                 e.currentTarget.setPointerCapture(e.pointerId);
 
                 setPressState(() => ({
@@ -51,25 +49,22 @@ const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, Segmente
 
         const onPointerUp = React.useCallback(
             (e: React.PointerEvent<HTMLButtonElement>) => {
-                console.log("Trigger > onPointerUp", { value, pressState });
-                if (buttonRef.current) {
-                    const rect = buttonRef.current.getBoundingClientRect();
-                    const withinBounds =
-                        e.clientX >= rect.left &&
-                        e.clientX <= rect.right &&
-                        e.clientY >= rect.top &&
-                        e.clientY <= rect.bottom;
-
-                    if (withinBounds) {
+                if (containerRef.current) {
+                    if (
+                        isWithinBounds({
+                            event: e,
+                            element: containerRef.current,
+                        })
+                    ) {
                         e.stopPropagation();
                         e.currentTarget.releasePointerCapture(e.pointerId);
                         setValue(value);
-                        setPressState({
-                            pressedValue: undefined,
-                            isLongPressed: false,
-                            dragValue: undefined,
-                        });
                     }
+                    setPressState({
+                        pressedValue: undefined,
+                        isLongPressed: false,
+                        dragValue: undefined,
+                    });
                 }
 
                 onPointerUpProp?.(e);
@@ -94,26 +89,20 @@ const Trigger = React.forwardRef<React.ElementRef<typeof Tabs.Trigger>, Segmente
         };
 
         return (
-            <Tabs.Trigger
-                ref={composedRef}
-                value={value}
-                type="button"
-                data-drag={getDataDragAttribute()}
-                onPointerDown={onPointerDown}
-                onPointerUp={onPointerUp}
-                style={{
-                    flex: 1,
-                    cursor: "pointer",
-                    height: "100%",
-                    transition: "transform 0.2s ease, opacity 0.2s ease",
-                    willChange: "transform, opacity",
-                    zIndex: 2,
-                    ...style,
-                }}
-                {...rest}
-            >
-                {children}
-            </Tabs.Trigger>
+            <div ref={containerRef} data-segmented-control-trigger-container="">
+                <Tabs.Trigger
+                    ref={ref}
+                    value={value}
+                    type="button"
+                    data-segmented-control-trigger=""
+                    data-drag={getDataDragAttribute()}
+                    onPointerDown={onPointerDown}
+                    onPointerUp={onPointerUp}
+                    {...rest}
+                >
+                    {children}
+                </Tabs.Trigger>
+            </div>
         );
     },
 );

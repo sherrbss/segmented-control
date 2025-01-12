@@ -1,176 +1,81 @@
-import React from "react";
-import { useComposedRefs } from "../hooks/use-composed-refs";
-import { useSegmentedControlContext } from "../context/root-context";
-import { usePrevious } from "../hooks/use-previous";
+import * as React from "react";
+
+import { useSegmentedControlContext } from "../context/context";
+import { setStyle } from "../util/helpers";
+import { useIndicatorState } from "../hooks/use-indicator-state";
 
 type SegmentedControlIndicatorProps = React.HTMLAttributes<HTMLSpanElement> & {
-    indicatorColor?: string;
     transitionDuration?: number;
-    placement?: "top" | "bottom" | "inset" | "custom";
+    layoutId?: string;
 };
 
-const getStyles = ({
-    placement,
-    indicatorColor,
-    coords,
-}: {
-    placement?: "top" | "bottom" | "inset" | "custom";
-    indicatorColor: string;
-    coords: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-    };
-}): React.CSSProperties => {
-    const baseStyles: React.CSSProperties = {
-        transform: `translate3d(${coords.x}px, 0, 0)`,
-        willChange: "transform",
-        width: coords.width,
-    };
-    if (placement === "custom") return {};
-    if (placement === "top" || placement === "bottom") {
-        return {
-            ...baseStyles,
-            position: "absolute",
-            [placement]: 0,
-            height: 2,
-            backgroundColor: indicatorColor,
-        };
-    }
-    if (placement === "inset") {
-        return {
-            position: "absolute",
-            zIndex: 1,
-            ...baseStyles,
-            top: "4px",
-            bottom: "4px",
-            borderRadius: "5px",
-            backgroundColor: indicatorColor,
-        };
-    }
-    return baseStyles;
-};
-
-/**
- * The underline/pill. We'll do a FLIP-like animation.
- * - We track the "last highlight" in `prevHighlightRef`.
- * - On each highlightValue change, we measure old and new bounding boxes, invert, then animate.
- * - If the user is dragging from the selected item, we animate each time highlightValue changes.
- * - If user long presses an unselected item, the highlightValue won't change until pointer up => no animation mid-drag.
-
- */
 const Indicator = React.forwardRef<HTMLSpanElement, SegmentedControlIndicatorProps>(
-    ({ indicatorColor = "#007AFF", transitionDuration = 400, placement, style: styleProp, ...rest }, forwardedRef) => {
-        const { value: selectedValue, pressState, getTriggerRef } = useSegmentedControlContext();
-        const indicatorRef = React.useRef<HTMLSpanElement | null>(null);
-        const composedRef = useComposedRefs(indicatorRef, forwardedRef);
+    ({ transitionDuration = 400, layoutId, ...rest }, ref) => {
+        const containerRef = React.useRef<HTMLSpanElement | null>(null);
 
-        const getActiveValue = () => {
-            if (pressState.dragValue === undefined || pressState.pressedValue === undefined) {
-                return selectedValue;
-            }
-            if (pressState.pressedValue === selectedValue && pressState.dragValue === selectedValue) {
-                return selectedValue;
-            }
-            return pressState.dragValue;
-        };
+        const { getTriggerRef, orientation, contentOrientation, mode } = useSegmentedControlContext();
+        const { value, pressed } = useIndicatorState();
 
-        const highlightValue = getActiveValue();
-
-        // Keep a ref to the *previous* highlight so we can animate from old => new
-        const prevHighlightRef = React.useRef<string | null>(null);
-        // const prevHighlightRef = usePrevious(highlightValue);
-
-        // For final layout
-        const [coords, setCoords] = React.useState({
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-        });
-
-        function measureBox(val: string) {
-            const btn = getTriggerRef(val);
-            if (!btn) return null;
-
-            const rect = btn.getBoundingClientRect();
-            // Always measure against the indicator’s own offsetParent to share the same frame of reference.
-            const parent = indicatorRef.current?.offsetParent as HTMLElement | null;
-            if (!parent) return null;
-
-            const parentRect = parent.getBoundingClientRect();
-
-            return {
-                x: rect.left - parentRect.left + 4,
-                y: rect.top - parentRect.top,
-                width: rect.width - 8,
-                height: rect.height,
-            };
-        }
-
-        // TODO - fix bug where long press + moving quick between two items jumps back to first item
         React.useEffect(() => {
-            if (!highlightValue) return;
+            const getStyles = (val: string) => {
+                const btn = getTriggerRef(val);
+                if (!btn) return null;
 
-            // measure new bounding box
-            const newBox = measureBox(highlightValue);
-            if (!newBox) return;
+                const rect = btn.getBoundingClientRect();
+                const parent = containerRef.current?.offsetParent as HTMLElement | null;
+                if (!parent) return null;
 
-            const el = indicatorRef.current;
+                const parentRect = parent.getBoundingClientRect();
+
+                return {
+                    width: `${rect.width}px`,
+                    height: `${rect.height}px`,
+                    top: `${rect.top - parentRect.top}px`,
+                    transform: `translate3d(${rect.left - parentRect.left}px, 0, 0) scale(${pressed ? 0.9 : 1})`,
+                };
+            };
+
+            if (!value) return;
+
+            const el = containerRef.current;
             if (!el) return;
 
-            // If we have no old highlight, just place ourselves (no animation).
-            if (!prevHighlightRef.current) {
-                setCoords({ ...newBox });
-                prevHighlightRef.current = highlightValue;
-                return;
-            }
+            el.getBoundingClientRect();
 
-            // If the highlight is unchanged, do nothing
-            if (prevHighlightRef.current === highlightValue) return;
+            const style = getStyles(value);
+            if (!style) return;
 
-            // We do FLIP from the "old highlight" bounding box to the "new highlight" bounding box
-            const oldBox = measureBox(prevHighlightRef.current);
-            if (!oldBox) {
-                // If old box can't be measured, fallback to immediate
-                setCoords({ ...newBox });
-                prevHighlightRef.current = highlightValue;
-                return;
-            }
-
-            // Step 1: Immediately set final coords
-            setCoords({ ...newBox });
-            el.getBoundingClientRect(); // force reflow
-
-            // // Step 2: Invert transform from old to new
-            // const dx = oldBox.x - newBox.x;
-            // const scaleX = oldBox.width / newBox.width;
-
-            // // // Temporarily disable transitions, jump to old bounding box
-            // // el.style.transition = "none";
-            // // el.style.transform = `translate3d(${dx}px, 0, 0) scaleX(${scaleX})`;
-            // // el.getBoundingClientRect(); // force reflow
-
-            // Step 3: Animate to transform: none
-            requestAnimationFrame(() => {
-                el.style.transition = `transform ${transitionDuration}ms ease`;
-                el.style.transform = "translate3d(0, 0, 0) scaleX(1)";
+            window.requestAnimationFrame(() => {
+                setStyle({
+                    element: el,
+                    style,
+                });
+                el.getBoundingClientRect();
             });
-
-            // Update previous highlight
-            prevHighlightRef.current = highlightValue;
-        }, [highlightValue, measureBox, transitionDuration]);
+        }, [transitionDuration, value, pressed, orientation, contentOrientation, mode]);
 
         return (
             <span
-                ref={composedRef}
+                ref={containerRef}
+                data-segmented-control-indicator=""
                 style={{
-                    ...getStyles({ placement, indicatorColor, coords }),
-                    ...styleProp,
+                    willChange: "transform, width",
+                    position: "absolute",
                 }}
-                {...rest}
-            />
+            >
+                <span
+                    style={{
+                        position: "relative",
+                        display: "flex",
+                        width: "100%",
+                        height: "100%",
+                        top: 0,
+                        left: 0,
+                    }}
+                >
+                    <span ref={ref} {...rest} />
+                </span>
+            </span>
         );
     },
 );

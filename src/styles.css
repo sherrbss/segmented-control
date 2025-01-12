@@ -1,0 +1,51 @@
+[data-segmented-control] {
+    --sc-timing-function: cubic-bezier(0.4, 0, 0.1, 1);
+    --sc-duration: 400ms;
+
+    /* display: flex; */
+    /* flex-direction: column; */
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+[data-segmented-control][data-content-orientation="horizontal"] {
+    display: flex;
+    flex-direction: row;
+}
+
+[data-segmented-control-group] {
+    display: flex;
+    position: relative;
+    width: 100%;
+    flex-direction: var(--sc-cg-flex-direction, row);
+}
+
+[data-segmented-control-group][data-orientation="vertical"] {
+    --sc-cg-flex-direction: column;
+}
+
+[data-segmented-control-indicator] {
+    transition: all var(--sc-duration) var(--sc-timing-function);
+    transform-origin: center center;
+    will-change: transform;
+    pointer-events: none;
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+}
+
+[data-segmented-control-trigger-container] {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+}
+
+[data-segmented-control-trigger] {
+    transition: all var(--sc-duration) var(--sc-timing-function);
+    cursor: pointer;
+    will-change: transform, opacity;
+    z-index: 2;
+}

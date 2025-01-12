@@ -1,8 +1,11 @@
+"use client";
+
 import * as Tabs from "@radix-ui/react-tabs";
 import React from "react";
 
-import SegmentedControlContext, { type Mode, type PressState } from "../context/root-context";
+import SegmentedControlContext, { type Mode, type PressState } from "../context/context";
 import { useControllableState } from "../hooks/use-controllable-state";
+import "../styles.css";
 
 type SegmentedControlRootProps = Tabs.TabsProps & {
     mode?: Mode;
@@ -11,6 +14,7 @@ type SegmentedControlRootProps = Tabs.TabsProps & {
     setPressed?: React.Dispatch<React.SetStateAction<string | undefined>>;
     drag?: string;
     setDrag?: React.Dispatch<React.SetStateAction<string | undefined>>;
+    contentOrientation?: "horizontal" | "vertical";
 };
 
 /**
@@ -28,8 +32,9 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
             setDrag: setDragProp,
             mode = "tabs",
             longPressThreshold = 200,
+            orientation = "horizontal",
+            contentOrientation = "vertical",
             children,
-            style,
             ...rest
         },
         ref,
@@ -39,34 +44,16 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
             defaultProp: valueProp,
             onChange: onValueChangeProp,
         });
-        const [pressed = "", setPressed] = useControllableState<string>({
-            prop: pressedProp,
-            defaultProp: pressedProp,
-            onChange: setPressedProp,
-        });
-        const [drag = "", setDrag] = useControllableState<string>({
-            prop: dragProp,
-            defaultProp: dragProp,
-            onChange: setDragProp,
-        });
 
-        // Press/drag state
         const [pressState, setPressState] = React.useState<PressState>({
             pressedValue: undefined,
             isLongPressed: false,
             dragValue: undefined,
         });
 
-        React.useEffect(() => {
-            // console.log("Root > pressState", pressState);
-            setDrag(pressState.dragValue);
-            setPressed(pressState.pressedValue);
-        }, [pressState, setDrag, setPressed]);
+        const triggerRefs = React.useRef<Record<string, HTMLElement | null>>({});
 
-        // Registry of triggers
-        const triggerRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
-
-        const registerTrigger = React.useCallback((val: string, ref: HTMLButtonElement | null) => {
+        const registerTrigger = React.useCallback((val: string, ref: HTMLElement | null) => {
             triggerRefs.current[val] = ref;
         }, []);
 
@@ -90,6 +77,8 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
                 unregisterTrigger,
                 getTriggerRef,
                 triggerRefs,
+                orientation,
+                contentOrientation,
             }),
             [
                 value,
@@ -102,10 +91,10 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
                 unregisterTrigger,
                 getTriggerRef,
                 triggerRefs,
+                orientation,
+                contentOrientation,
             ],
         );
-
-        // console.log("Root > pressedState", { pressState, pressed, drag });
 
         return (
             <SegmentedControlContext.Provider value={contextValue}>
@@ -113,14 +102,8 @@ const Root = React.forwardRef<HTMLDivElement, SegmentedControlRootProps>(
                     ref={ref}
                     value={value}
                     onValueChange={setValue}
-                    style={{
-                        display: "inline-flex",
-                        flexDirection: "column",
-                        position: "relative",
-                        userSelect: "none",
-                        touchAction: "none",
-                        ...style,
-                    }}
+                    data-segmented-control
+                    data-content-orientation={contentOrientation}
                     {...rest}
                 >
                     {children}

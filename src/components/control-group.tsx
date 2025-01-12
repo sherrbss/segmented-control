@@ -1,62 +1,77 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import React from "react";
 
-import { useSegmentedControlContext } from "../context/root-context";
+import { useSegmentedControlContext } from "../context/context";
 import { useComposedRefs } from "../hooks/use-composed-refs";
+import { findNearestValue, isWithinBounds } from "../util/helpers";
 
 type ControlGroupProps = Tabs.TabsListProps;
 
-/**
- * A container that holds all Trigger(s) (and optionally Indicator).
- * Content is rendered below this group in the Root.
- */
 const ControlGroup = React.forwardRef<HTMLDivElement, ControlGroupProps>(
     (
-        {
-            onPointerUp: onPointerUpProp,
-            onPointerMove: onPointerMoveProp,
-            onClick: onClickProp,
-            children,
-            style,
-            ...rest
-        },
+        { onPointerUp: onPointerUpProp, onPointerMove: onPointerMoveProp, onClick: onClickProp, children, ...rest },
         ref,
     ) => {
         const innerRef = React.useRef<HTMLDivElement | null>(null);
         const composedRef = useComposedRefs(ref, innerRef);
 
-        const { value, pressState, setPressState, setValue, triggerRefs } = useSegmentedControlContext();
+        const { value, pressState, setPressState, setValue, triggerRefs, orientation } = useSegmentedControlContext();
 
-        // Finds the nearest trigger to a pointer X (for snapping during drag)
-        const findNearestValue = React.useCallback((clientX: number): string | undefined => {
-            const entries = Object.entries(triggerRefs.current);
-            if (!entries.length) return undefined;
+        const pointerMoveEventRef = React.useRef<React.PointerEvent<HTMLDivElement> | null>(null);
+        const pointerMoveRafRef = React.useRef<number | null>(null);
 
-            const distances = entries.map(([val, btn]) => {
-                if (!btn) return { val, dist: Infinity };
-                const rect = btn.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                return { val, dist: Math.abs(centerX - clientX) };
-            });
-            distances.sort((a, b) => a.dist - b.dist);
-            return distances[0]?.val ?? undefined;
+        React.useEffect(() => {
+            return () => {
+                if (pointerMoveRafRef.current !== null) {
+                    cancelAnimationFrame(pointerMoveRafRef.current);
+                }
+            };
         }, []);
 
         const onPointerMove = React.useCallback(
             (e: React.PointerEvent<HTMLDivElement>) => {
-                if (pressState.pressedValue) {
-                    const nearestVal = findNearestValue(e.clientX);
-                    setPressState((prev) => ({ ...prev, dragValue: nearestVal }));
+                pointerMoveEventRef.current = e;
+
+                if (pointerMoveRafRef.current !== null) {
+                    cancelAnimationFrame(pointerMoveRafRef.current);
                 }
+
+                pointerMoveRafRef.current = requestAnimationFrame(() => {
+                    if (!pointerMoveEventRef.current) return;
+                    const event = pointerMoveEventRef.current;
+
+                    if (pressState.pressedValue) {
+                        if (pressState.pressedValue !== value) {
+                            const el = triggerRefs.current[pressState.pressedValue];
+                            if (
+                                !isWithinBounds({
+                                    event,
+                                    element: el,
+                                })
+                            ) {
+                                setPressState((prev) => ({ ...prev, dragValue: undefined }));
+                                return;
+                            }
+                        }
+
+                        const nearestVal = findNearestValue({
+                            event,
+                            elements: triggerRefs.current,
+                            orientation,
+                        });
+                        if (pressState.dragValue !== nearestVal) {
+                            setPressState((prev) => ({ ...prev, dragValue: nearestVal }));
+                        }
+                    }
+                });
 
                 onPointerMoveProp?.(e);
             },
-            [pressState.pressedValue, findNearestValue, value, setPressState, onPointerMoveProp],
+            [pressState, value, setPressState, triggerRefs, orientation, onPointerMoveProp],
         );
 
         const onPointerUp = React.useCallback(
             (e: React.PointerEvent<HTMLDivElement>) => {
-                console.log("ControlGroup > onPointerUp", { value, pressState });
                 if (pressState.dragValue) {
                     setValue(pressState.dragValue);
                     setPressState({
@@ -65,13 +80,14 @@ const ControlGroup = React.forwardRef<HTMLDivElement, ControlGroupProps>(
                         dragValue: undefined,
                     });
                 }
+
+                onPointerUpProp?.(e);
             },
-            [pressState.dragValue, pressState.dragValue, findNearestValue, value, setPressState],
+            [pressState.dragValue, setValue, setPressState, onPointerUpProp],
         );
 
         const onClick = React.useCallback(
             (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-                console.log("ControlGroup > onClick", { value, pressState });
                 if (pressState.dragValue) {
                     setValue(pressState.dragValue);
                     setPressState({
@@ -83,7 +99,7 @@ const ControlGroup = React.forwardRef<HTMLDivElement, ControlGroupProps>(
 
                 onClickProp?.(e);
             },
-            [onClickProp],
+            [pressState.dragValue, setValue, setPressState, onClickProp],
         );
 
         return (
@@ -92,13 +108,8 @@ const ControlGroup = React.forwardRef<HTMLDivElement, ControlGroupProps>(
                 onPointerUp={onPointerUp}
                 onPointerMove={onPointerMove}
                 onClick={onClick}
-                style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    position: "relative",
-                    height: "100%",
-                    ...style,
-                }}
+                data-segmented-control-group=""
+                data-orientation={orientation}
                 {...rest}
             >
                 {children}
