@@ -3,7 +3,7 @@ import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import React from "react";
 
 import { useSegmentedControlContext } from "../context/context";
-import { isWithinBounds } from "../util/helpers";
+import { getDataDragAttributes, isWithinBounds, setAttributes } from "../util/helpers";
 import { useComposedRefs } from "../hooks/use-composed-refs";
 import { Mode } from "../types";
 
@@ -39,8 +39,7 @@ function TriggerImpl<T extends Mode = "toggle-group">(
     const triggerRef = React.useRef<HTMLButtonElement | null>(null);
     const composedRef = useComposedRefs<HTMLButtonElement>(ref, triggerRef);
     const containerRef = React.useRef<HTMLElement | null>(null);
-
-    const selected = value === selectedValue;
+    const longPressTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const onPointerDown = React.useCallback(
         (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -48,11 +47,14 @@ function TriggerImpl<T extends Mode = "toggle-group">(
             e.preventDefault();
             e.currentTarget.setPointerCapture(e.pointerId);
 
-            setPressState(() => ({
-                pressedValue: value,
-                isLongPressed: true,
-                dragValue: value,
-            }));
+            if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+            longPressTimeoutRef.current = setTimeout(() => {
+                setPressState(() => ({
+                    pressedValue: value,
+                    isLongPressed: true,
+                    dragValue: value,
+                }));
+            }, 25);
 
             onPointerDownProp?.(e);
         },
@@ -61,6 +63,7 @@ function TriggerImpl<T extends Mode = "toggle-group">(
 
     const onPointerUp = React.useCallback(
         (e: React.PointerEvent<HTMLButtonElement>) => {
+            if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
             if (containerRef.current) {
                 if (
                     isWithinBounds({
@@ -84,21 +87,22 @@ function TriggerImpl<T extends Mode = "toggle-group">(
         [onPointerUpProp, setValue, setPressState, value],
     );
 
-    const getDataDragAttribute = () => {
-        const pressed = pressState.pressedValue === value;
-        const dragging = pressState.dragValue === value;
+    React.useEffect(() => {
+        setAttributes({
+            element: triggerRef.current,
+            attributes: getDataDragAttributes({
+                value,
+                selectedValue,
+                pressState,
+            }),
+        });
+    }, [pressState, selectedValue, value]);
 
-        if (selected) {
-            if (pressState.dragValue === undefined) return "active";
-            if (pressState.pressedValue !== value) return "active";
-            if (!dragging) return "inactive";
-            return pressed ? "active-pressed" : "inactive";
-        }
-
-        if (dragging && !pressed && pressState.pressedValue === selectedValue) return "active-pressed";
-        if (dragging) return "inactive-pressed";
-        return "inactive";
-    };
+    React.useEffect(() => {
+        return () => {
+            if (longPressTimeoutRef.current) clearTimeout(longPressTimeoutRef.current);
+        };
+    }, []);
 
     const Comp = mode === "tabs" ? Tabs.Trigger : ToggleGroup.ToggleGroupItem;
 
@@ -119,7 +123,7 @@ function TriggerImpl<T extends Mode = "toggle-group">(
                 value={value}
                 type="button"
                 data-segmented-control-trigger=""
-                data-drag={getDataDragAttribute()}
+                // data-drag={getDataDragAttribute()}
                 data-orientation={orientation}
                 onPointerDown={onPointerDown}
                 onPointerUp={onPointerUp}

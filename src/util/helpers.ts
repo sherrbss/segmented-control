@@ -1,3 +1,5 @@
+import { PressState } from "../types";
+
 /**
  * Set the style of an element.
  */
@@ -92,4 +94,53 @@ export const getAlignmentByIndex = ({
     if (index < middle) return "left";
     else if (index === middle) return "center";
     else return "right";
+};
+
+/**
+ * Get the data attributes for a trigger element based on its state.
+ */
+export const getDataDragAttributes = ({
+    value,
+    selectedValue,
+    pressState,
+}: {
+    value: string;
+    selectedValue: string;
+    pressState: PressState;
+}) => {
+    const selected = value === selectedValue;
+    const pressed = pressState.pressedValue === value;
+    const otherPressed = pressState.pressedValue !== undefined && pressState.pressedValue !== value;
+    const dragging = pressState.dragValue === value;
+    const otherDragging = !dragging && pressState.dragValue !== undefined;
+    const selectedPressed = pressState.pressedValue === selectedValue;
+
+    if (selected) {
+        if (!otherDragging) {
+            if (pressed) return { active: true, pressed: true };
+            if (!dragging) return { active: true, pressed: false };
+        }
+        if (otherPressed) return { active: true, pressed: false };
+        return { active: false, pressed: false };
+    }
+
+    if (dragging && !pressed && selectedPressed) return { active: true, pressed: true };
+    if (dragging) return { active: false, pressed: true };
+    return { active: false, pressed: false };
+};
+
+/**
+ * Set the data attributes for an element.
+ */
+export const setAttributes = ({
+    element,
+    attributes,
+}: {
+    element: HTMLElement | null;
+    attributes: Record<string, string | boolean>;
+}) => {
+    if (!element) return;
+    Object.entries(attributes).forEach(([key, value]) => {
+        element.setAttribute(`data-${key}`, `${value}`);
+    });
 };

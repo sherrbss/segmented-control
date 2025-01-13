@@ -49,4 +49,20 @@
     cursor: pointer;
     will-change: transform, opacity;
     z-index: 2;
+    width: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+[data-segmented-control-trigger][data-pressed="true"][data-active="true"] {
+    transform: scale(0.92);
+}
+
+[data-segmented-control-trigger][data-orientation="horizontal"][data-pressed="true"][data-active="true"][data-align="left"] {
+    transform: translateX(-4px) scale(0.92);
+}
+
+[data-segmented-control-trigger][data-orientation="horizontal"][data-pressed="true"][data-active="true"][data-align="right"] {
+    transform: translateX(4px) scale(0.92);
 }

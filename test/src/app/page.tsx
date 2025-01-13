@@ -22,6 +22,8 @@ export default function Page() {
     const exampleDuration = useOpacityDuration(exampleBounds.height);
     const controlsDuration = useOpacityDuration(controlsBounds.height);
 
+    const enableInlineTabsButton = false as boolean;
+
     return (
         <div className="w-scareen h-screen bg-white p-8 flex flex-col justify-center gap-6 items-center">
             <div className="w-[300px] flex flex-col gap-6">
@@ -60,34 +62,41 @@ export default function Page() {
                                         mode={mode}
                                         orientation={orientation}
                                         contentOrientation={contentOrientation}
-                                        className="w-full h-full overflow-hidden"
+                                        className={cn("w-full h-full overflow-hidden", "gap-2")}
                                     >
-                                        <SegmentedControl.ControlGroup
+                                        <div
                                             className={cn(
-                                                "bg-[#5F6368] h-fit p-1 rounded-[10px]",
+                                                "flex flex-1 w-full h-full items-center gap-2",
                                                 mode === "tabs" &&
                                                     orientation === "vertical" &&
                                                     contentOrientation === "horizontal" &&
                                                     "w-fit max-w-[100px]",
                                             )}
                                         >
-                                            <SegmentedControl.Trigger value="alpha" className={triggerStyles()}>
-                                                Alpha
-                                            </SegmentedControl.Trigger>
-                                            <SegmentedControl.Trigger value="beta" className={triggerStyles()}>
-                                                Beta
-                                            </SegmentedControl.Trigger>
-                                            <SegmentedControl.Trigger value="gamma" className={triggerStyles()}>
-                                                Gamma
-                                            </SegmentedControl.Trigger>
-                                            <SegmentedControl.Indicator className="bg-[#8d8d8d] h-full w-full rounded-[7px]" />
-                                        </SegmentedControl.ControlGroup>
+                                            <SegmentedControl.ControlGroup className="bg-[#5F6368] h-fit p-1 rounded-[10px] flex-1">
+                                                <SegmentedControl.Trigger value="alpha" className={triggerStyles()}>
+                                                    Alpha
+                                                </SegmentedControl.Trigger>
+                                                <SegmentedControl.Trigger value="beta" className={triggerStyles()}>
+                                                    Beta
+                                                </SegmentedControl.Trigger>
+                                                <SegmentedControl.Trigger value="gamma" className={triggerStyles()}>
+                                                    Gamma
+                                                </SegmentedControl.Trigger>
+                                                <SegmentedControl.Indicator className="bg-[#8d8d8d] h-full w-full rounded-[7px]" />
+                                            </SegmentedControl.ControlGroup>
+
+                                            {enableInlineTabsButton && (
+                                                <div className="w-[20px] h-[20px] bg-slate-400 rounded-full" />
+                                            )}
+                                        </div>
 
                                         <SegmentedControl.Content
                                             value="alpha"
                                             className={cn(
-                                                orientation === "horizontal" && "flex-1",
+                                                "flex flex-1 w-full items-center justify-center rounded-md border border-gray-300",
                                                 mode === "toggle-group" && "hidden",
+                                                contentOrientation === "vertical" && "py-8",
                                             )}
                                         >
                                             <p>Content for Alpha</p>
@@ -95,8 +104,9 @@ export default function Page() {
                                         <SegmentedControl.Content
                                             value="beta"
                                             className={cn(
-                                                orientation === "horizontal" && "flex-1",
+                                                "flex flex-1 w-full items-center justify-center rounded-md border border-gray-300",
                                                 mode === "toggle-group" && "hidden",
+                                                contentOrientation === "vertical" && "py-8",
                                             )}
                                         >
                                             <p>Content for Beta</p>
@@ -104,8 +114,9 @@ export default function Page() {
                                         <SegmentedControl.Content
                                             value="gamma"
                                             className={cn(
-                                                orientation === "horizontal" && "flex-1",
+                                                "flex flex-1 w-full items-center justify-center rounded-md border border-gray-300",
                                                 mode === "toggle-group" && "hidden",
+                                                contentOrientation === "vertical" && "py-8",
                                             )}
                                         >
                                             <p>Content for Gamma</p>
@@ -150,7 +161,7 @@ export default function Page() {
                                         <h1>Mode</h1>
                                         <SegmentedControl.Root
                                             value={mode}
-                                            onValueChange={(v) => setMode(v as "tabs" | "toggle-group")}
+                                            onValueChange={setMode}
                                             mode="toggle-group"
                                             className="w-[300px] overflow-hidden"
                                         >
@@ -173,7 +184,7 @@ export default function Page() {
                                         <h1>Control Group Orientation</h1>
                                         <SegmentedControl.Root
                                             value={orientation}
-                                            onValueChange={(v) => setOrientation(v as "horizontal" | "vertical")}
+                                            onValueChange={setOrientation}
                                             mode="toggle-group"
                                             className="w-[300px] overflow-hidden"
                                         >
@@ -197,9 +208,7 @@ export default function Page() {
                                             <h1>Content Orientation</h1>
                                             <SegmentedControl.Root
                                                 value={contentOrientation}
-                                                onValueChange={(v) =>
-                                                    setContentOrientation(v as "horizontal" | "vertical")
-                                                }
+                                                onValueChange={setContentOrientation}
                                                 mode="toggle-group"
                                                 className="w-[300px] overflow-hidden"
                                             >
