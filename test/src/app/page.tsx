@@ -58,7 +58,7 @@ export default function Page() {
                                 >
                                     <SegmentedControl.Root
                                         value={value}
-                                        onValueChange={setValue}
+                                        onValueChange={setValue as (value: string) => void}
                                         mode={mode}
                                         orientation={orientation}
                                         contentOrientation={contentOrientation}
@@ -161,7 +161,7 @@ export default function Page() {
                                         <h1>Mode</h1>
                                         <SegmentedControl.Root
                                             value={mode}
-                                            onValueChange={setMode}
+                                            onValueChange={setMode as (value: string) => void}
                                             mode="toggle-group"
                                             className="w-[300px] overflow-hidden"
                                         >
@@ -184,7 +184,7 @@ export default function Page() {
                                         <h1>Control Group Orientation</h1>
                                         <SegmentedControl.Root
                                             value={orientation}
-                                            onValueChange={setOrientation}
+                                            onValueChange={setOrientation as (value: string) => void}
                                             mode="toggle-group"
                                             className="w-[300px] overflow-hidden"
                                         >
@@ -208,7 +208,7 @@ export default function Page() {
                                             <h1>Content Orientation</h1>
                                             <SegmentedControl.Root
                                                 value={contentOrientation}
-                                                onValueChange={setContentOrientation}
+                                                onValueChange={setContentOrientation as (value: string) => void}
                                                 mode="toggle-group"
                                                 className="w-[300px] overflow-hidden"
                                             >
